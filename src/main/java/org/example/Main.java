@@ -3,8 +3,7 @@ package org.example;
 import com.google.gson.Gson;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Main {
 
@@ -29,11 +28,11 @@ public class Main {
                 "data/large_3_mixed.json"
         };
 
-        System.out.println("--- Starting Integrated Algorithm Testing ---");
+        System.out.println("--- Запуск Интеграционного Тестирования Алгоритмов ---");
 
         for (String filePath : dataFiles) {
-            System.out.println("\n- - - ");
-            System.out.println("Processing file: " + filePath);
+            System.out.println("\n--------------------------------------------------");
+            System.out.println("Обработка файла: " + filePath);
 
             try {
                 TaskGraph graph = loadGraphFromJson(filePath);
@@ -46,20 +45,16 @@ public class Main {
 
                 long sccTime = metrics.getElapsedTimeNanos();
 
-                System.out.printf("  [SCC] Components found: %d. Time: %.2f ms%n",
+                System.out.printf("  [SCC] Components found: %d. Time: %.2f мс%n",
                         dag.getNumComponents(), sccTime / 1_000_000.0);
 
-
-                metrics.reset();
                 TopologicalSorter topoSorter = new TopologicalSorter(metrics);
                 List<Integer> topoOrder = topoSorter.sort(dag);
 
                 long topoTime = metrics.getElapsedTimeNanos();
 
-                System.out.printf("  [TOPO] Time: %.2f ms%n", topoTime / 1_000_000.0);
+                System.out.printf("  [TOPO] Time: %.2f мс%n", topoTime / 1_000_000.0);
 
-
-                metrics.reset();
                 DAGShortestPath pathFinder = new DAGShortestPath(metrics);
 
                 Map<Integer, Integer> shortestPaths = pathFinder.calculateShortestPaths(dag, topoOrder);
@@ -68,7 +63,12 @@ public class Main {
 
                 long pathTime = metrics.getElapsedTimeNanos();
 
-                System.out.printf("  [PATHS] Time: %.2f ms%n", pathTime / 1_000_000.0);
+                System.out.printf("  [PATHS] Time: %.2f мс%n", pathTime / 1_000_000.0);
+
+                System.out.printf("  [PATHS] Shortest Paths (Source %d): %s%n", dag.getOriginalSource(), formatPathOutput(dag, shortestPaths));
+                System.out.printf("  [PATHS] Longest Paths (Critical Path Map): %s%n", formatPathOutput(dag, longestPaths));
+                int criticalPathLength = longestPaths.values().stream().max(Integer::compare).orElse(-1);
+                System.out.printf("  [PATHS] Critical Path Length: %d%n", criticalPathLength);
 
 
                 System.out.println("\n  --- Metrics Summary ---");
@@ -76,12 +76,12 @@ public class Main {
                         sccFinder.metrics.getCounter(Metrics.DFS_VISITS),
                         sccFinder.metrics.getCounter(Metrics.EDGE_CHECKS));
                 System.out.printf("  | TOPO: KAHN_OPS (Push/Pop): %d%n",
-                        topoSorter.metrics.getCounter(TopologicalSorter.KAHN_OPS));
+                        topoSorter.metrics.getCounter(Metrics.KAHN_OPS));
                 System.out.printf("  | PATHS: RELAXATIONS: %d%n",
-                        pathFinder.metrics.getCounter(DAGShortestPath.DAG_RELAXATIONS));
+                        pathFinder.metrics.getCounter(Metrics.DAG_RELAXATIONS));
 
             } catch (IOException e) {
-                System.err.println("Error reading file: " + filePath + ". Check path and format.");
+                System.err.println("Ошибка чтения файла: " + filePath + ". Проверьте путь и формат.");
                 e.printStackTrace();
             }
         }
@@ -94,5 +94,17 @@ public class Main {
             TaskData data = gson.fromJson(reader, TaskData.class);
             return new TaskGraph(data.n, data.edges, data.source);
         }
+    }
+
+    private static String formatPathOutput(CondensationGraph dag, Map<Integer, Integer> distances) {
+        Map<Integer, Integer> originalDistances = new HashMap<>();
+        for (int i = 0; i < dag.getSccs().size(); i++) {
+            int componentDistance = distances.getOrDefault(i, Integer.MAX_VALUE / 2);
+            for (int originalVertex : dag.getSccs().get(i)) {
+                originalDistances.put(originalVertex, componentDistance);
+            }
+        }
+        TreeMap<Integer, Integer> sortedOutput = new TreeMap<>(originalDistances);
+        return sortedOutput.toString();
     }
 }

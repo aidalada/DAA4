@@ -2,7 +2,6 @@ package org.example;
 
 import java.util.*;
 
-
 public class KosarajuSCC {
 
     public final Metrics metrics;
@@ -44,15 +43,15 @@ public class KosarajuSCC {
     }
 
 
-
     private void dfsFirstPass(TaskGraph graph, int u, boolean[] visited, Stack<Integer> stack) {
         visited[u] = true;
         metrics.incrementCounter(Metrics.DFS_VISITS);
 
         for (Edge edge : graph.getAdjList().getOrDefault(u, Collections.emptyList())) {
             metrics.incrementCounter(Metrics.EDGE_CHECKS);
-            if (!visited[edge.v()]) {
-                dfsFirstPass(graph, edge.v(), visited, stack);
+            int v = edge.v();
+            if (!visited[v]) {
+                dfsFirstPass(graph, v, visited, stack);
             }
         }
         stack.push(u);
@@ -61,13 +60,14 @@ public class KosarajuSCC {
 
     private void dfsSecondPass(TaskGraph transposedGraph, int u, boolean[] visited, List<Integer> currentScc) {
         visited[u] = true;
-        currentScc.add(u);
         metrics.incrementCounter(Metrics.DFS_VISITS);
+        currentScc.add(u);
 
         for (Edge edge : transposedGraph.getAdjList().getOrDefault(u, Collections.emptyList())) {
             metrics.incrementCounter(Metrics.EDGE_CHECKS);
-            if (!visited[edge.v()]) {
-                dfsSecondPass(transposedGraph, edge.v(), visited, currentScc);
+            int v = edge.v();
+            if (!visited[v]) {
+                dfsSecondPass(transposedGraph, v, visited, currentScc);
             }
         }
     }
@@ -97,6 +97,7 @@ public class KosarajuSCC {
 
                 if (componentU != componentV) {
                     Edge newEdge = new Edge(componentU, componentV, originalEdge.w());
+
                     if (!newAdjList.get(componentU).contains(newEdge)) {
                         newAdjList.get(componentU).add(newEdge);
                     }

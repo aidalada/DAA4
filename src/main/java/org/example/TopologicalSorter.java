@@ -4,13 +4,12 @@ import java.util.*;
 
 public class TopologicalSorter {
 
-    public static final String KAHN_OPS = "Kahn_Pops_Pushes";
-
     public final Metrics metrics;
 
     public TopologicalSorter(Metrics metrics) {
         this.metrics = metrics;
     }
+
 
     public List<Integer> sort(CondensationGraph dag) {
         metrics.startTimer();
@@ -32,13 +31,13 @@ public class TopologicalSorter {
         for (int i = 0; i < V; i++) {
             if (inDegree.getOrDefault(i, 0) == 0) {
                 queue.add(i);
-                metrics.incrementCounter(KAHN_OPS);
+                metrics.incrementCounter(Metrics.KAHN_OPS);
             }
         }
 
         while (!queue.isEmpty()) {
             int u = queue.poll();
-            metrics.incrementCounter(KAHN_OPS);
+            metrics.incrementCounter(Metrics.KAHN_OPS);
             result.add(u);
 
             for (Edge edge : dag.getAdjList().getOrDefault(u, Collections.emptyList())) {
@@ -48,12 +47,13 @@ public class TopologicalSorter {
 
                 if (newInDegree == 0) {
                     queue.add(v);
-                    metrics.incrementCounter(KAHN_OPS);
+                    metrics.incrementCounter(Metrics.KAHN_OPS);
                 }
             }
         }
 
         metrics.stopTimer();
+
         return result;
     }
 }

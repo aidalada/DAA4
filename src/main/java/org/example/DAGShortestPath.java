@@ -5,8 +5,6 @@ import java.util.*;
 
 public class DAGShortestPath {
 
-    public static final String DAG_RELAXATIONS = "DAG_Relaxations";
-
     public final Metrics metrics;
 
     private static final int INFINITY = Integer.MAX_VALUE / 2;
@@ -19,7 +17,7 @@ public class DAGShortestPath {
     public Map<Integer, Integer> calculateShortestPaths(CondensationGraph dag, List<Integer> topoOrder) {
         metrics.startTimer();
 
-        Map<Integer, Integer> distances = initializeDistances(dag, false);
+        Map<Integer, Integer> distances = initializeDistances(dag, false); // Инициализация
         int sourceComponent = getSourceComponentId(dag);
 
         if (distances.containsKey(sourceComponent)) {
@@ -30,12 +28,12 @@ public class DAGShortestPath {
             int distU = distances.getOrDefault(u, INFINITY);
             if (distU != INFINITY) {
                 for (Edge edge : dag.getAdjList().getOrDefault(u, Collections.emptyList())) {
-                    metrics.incrementCounter(DAG_RELAXATIONS);
                     int v = edge.v();
                     int weight = edge.w();
 
-                    if (distances.get(v) > distU + weight) {
+                    if (distU + weight < distances.getOrDefault(v, INFINITY)) {
                         distances.put(v, distU + weight);
+                        metrics.incrementCounter(Metrics.DAG_RELAXATIONS); // МЕТРИКА: релаксация
                     }
                 }
             }
@@ -47,19 +45,12 @@ public class DAGShortestPath {
 
 
     public Map<Integer, Integer> calculateLongestPaths(CondensationGraph dag, List<Integer> topoOrder) {
-        Map<Integer, List<Edge>> invertedAdjList = new HashMap<>();
-        for (int u = 0; u < dag.getNumComponents(); u++) {
-            invertedAdjList.put(u, new ArrayList<>());
-            for (Edge edge : dag.getAdjList().getOrDefault(u, Collections.emptyList())) {
-                invertedAdjList.get(u).add(new Edge(edge.u(), edge.v(), -edge.w()));
-            }
-        }
+        metrics.startTimer();
 
 
-        CondensationGraph invertedDag = new CondensationGraph(dag.getSccs(), invertedAdjList, dag.getOriginalSource());
-
-        Map<Integer, Integer> negativeDistances = initializeDistances(invertedDag, false);
+        Map<Integer, Integer> negativeDistances = initializeDistances(dag, false);
         int sourceComponent = getSourceComponentId(dag);
+
         if (negativeDistances.containsKey(sourceComponent)) {
             negativeDistances.put(sourceComponent, 0);
         }
@@ -67,13 +58,14 @@ public class DAGShortestPath {
         for (int u : topoOrder) {
             int distU = negativeDistances.getOrDefault(u, INFINITY);
             if (distU != INFINITY) {
-                for (Edge edge : invertedDag.getAdjList().getOrDefault(u, Collections.emptyList())) {
-                    metrics.incrementCounter(DAG_RELAXATIONS); // Метрика сохраняется
+                for (Edge edge : dag.getAdjList().getOrDefault(u, Collections.emptyList())) {
                     int v = edge.v();
-                    int weight = edge.w();
+                    int negativeWeight = -edge.w();
 
-                    if (negativeDistances.get(v) > distU + weight) {
-                        negativeDistances.put(v, distU + weight);
+
+                    if (distU + negativeWeight < negativeDistances.getOrDefault(v, INFINITY)) {
+                        negativeDistances.put(v, distU + negativeWeight);
+                        metrics.incrementCounter(Metrics.DAG_RELAXATIONS);
                     }
                 }
             }
@@ -88,8 +80,10 @@ public class DAGShortestPath {
             }
         }
 
+        metrics.stopTimer();
         return longestPaths;
     }
+
 
 
     private Map<Integer, Integer> initializeDistances(CondensationGraph dag, boolean useNegativeInfinity) {
@@ -100,16 +94,13 @@ public class DAGShortestPath {
         return distances;
     }
 
-
     private int getSourceComponentId(CondensationGraph dag) {
         int sourceNode = dag.getOriginalSource();
-        int componentId = -1;
         for (int i = 0; i < dag.getSccs().size(); i++) {
             if (dag.getSccs().get(i).contains(sourceNode)) {
-                componentId = i;
-                break;
+                return i;
             }
         }
-        return componentId;
+        return -1;
     }
 }
